@@ -1,16 +1,11 @@
-name: Bump Version on Staging Before Merge
+name: Bump Version via GH CLI
 
 on:
   pull_request_review:
     types: [submitted]
 
 jobs:
-  bump-version-on-approval:
-    # Runs only if:
-    # 1. PR review was approved
-    # 2. Target branch is main
-    # 3. Source branch is staging
-    # 4. PR has the 'version bump' label
+  bump-version-api:
     if: >
       github.event.review.state == 'approved' &&
       github.event.pull_request.base.ref == 'main' &&
@@ -19,48 +14,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Generate token to bypass staging branch protection
-      - name: Generate GitHub App Token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      # Step 2: Checkout the source branch (staging)
-      - name: Checkout Staging Branch
-        uses: actions/checkout@v4
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          ref: ${{ github.head_ref }} # 'staging'
-
-      # Step 3: Increment version in version.json
-      - name: Increment version.json
+      - name: Bump version.json using gh api
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_PAT }} # PAT or App Token with bypass privileges
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref }} # 'staging'
         run: |
-          python3 -c "
-          import json
+          # 1. Fetch current version.json content and SHA from GitHub API
+          FILE_DATA=$(gh api "repos/$REPO/contents/version.json?ref=$BRANCH")
+          FILE_SHA=$(echo "$FILE_DATA" | jq -r '.sha')
+          CONTENT_BASE64=$(echo "$FILE_DATA" | jq -r '.content' | tr -d '\n')
+          
+          # 2. Decode and increment the version
+          CURRENT_JSON=$(echo "$CONTENT_BASE64" | base64 -d)
+          NEW_JSON=$(echo "$CURRENT_JSON" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          if isinstance(data, dict) and 'version' in data:
+              data['version'] = int(data['version']) + 1
+          elif isinstance(data, int):
+              data += 1
+          print(json.dumps(data, indent=2))
+          ")
 
-          with open('version.json', 'r+') as f:
-              data = json.load(f)
-              if isinstance(data, dict) and 'version' in data:
-                  data['version'] = int(data['version']) + 1
-              elif isinstance(data, int):
-                  data += 1
-              f.seek(0)
-              json.dump(data, f, indent=2)
-              f.truncate()
-          "
+          # 3. Base64 encode the updated JSON
+          ENCODED_NEW_CONTENT=$(echo "$NEW_JSON" | base64 -w 0)
 
-      # Step 4: Commit and Push directly back to staging
-      - name: Commit and Push to Staging
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          if git diff --quiet version.json; then
-            echo "No changes detected in version.json."
-          else
-            git add version.json
-            git commit -m "chore: bump version [skip ci]"
-            git push origin ${{ github.head_ref }}
-          fi
+          # 4. Commit updated file back to staging branch via GitHub API
+          gh api --method PUT "repos/$REPO/contents/version.json" \
+            -f message="chore: bump version [skip ci]" \
+            -f content="$ENCODED_NEW_CONTENT" \
+            -f sha="$FILE_SHA" \
+            -f branch="$BRANCH"
