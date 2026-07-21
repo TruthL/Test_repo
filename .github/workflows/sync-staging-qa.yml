@@ -1,0 +1,58 @@
+name: Sync staging and reset qa on main updates
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write   # needed to push with GITHUB_TOKEN
+  pull-requests: write
+
+concurrency:
+  group: sync-staging-qa
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch remotes
+        run: git fetch origin "+refs/heads/*:refs/remotes/origin/*"
+
+      # ---- Merge main into staging ----
+      - name: Prepare local staging
+        run: |
+          if git ls-remote --exit-code --heads origin staging >/dev/null 2>&1; then
+            git checkout -B staging origin/staging
+          else
+            # if staging doesn't exist yet, create it from main the first time
+            git checkout -b staging origin/main
+          fi
+
+      - name: Merge main → staging
+        run: |
+          # Prefer fast-forward only to keep history clean; fail if staging has diverged.
+          git merge --ff-only origin/main || {
+            echo "::error::staging has diverged from main. Resolve manually (or switch to a normal merge)."
+            exit 1
+          }
+      - name: Create PR main → staging
+        run: |
+          gh pr create \
+            --base staging \
+            --head main \
+            --title "Sync main into staging" \
+            --body "Automated fast-forward sync from main" \
+          || echo "PR already exists."
+
+      # ---- Nuke qa and recreate from main ----
+      - name: Reset qa to main (force update)
+        run: |
+          # This force-updates qa to the exact tip of main (equivalent to delete & recreate)
+          git push --force-with-lease origin +refs/heads/main:refs/heads/qa

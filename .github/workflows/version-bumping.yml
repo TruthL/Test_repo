@@ -1,0 +1,185 @@
+# The fronted is not triggering the version bump workflow
+# When staging is merged to main, it needs to trigger back merge into all branches
+# When a PR to merge staging to main is made, 
+name: Auto Version Bump PR
+
+on:
+  pull_request:
+    types: [closed]
+    # This action is running on main
+    branches: [main]
+
+permissions:
+  contents: write        # git push bump branch + tags
+  pull-requests: write   # create PR, read merged PR
+  issues: write          # gh label create (labels use Issues API)
+
+concurrency:
+  group: version-bump-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+
+jobs:
+  create-version-bump:
+    # Only run when a PR is actually merged (not just closed)
+    if: github.event.pull_request.merged == true
+    #! ubuntu virtual machine
+    runs-on: ubuntu-latest
+
+    steps:
+    #! Steps starts with a name then action
+      - name: Checkout target branch
+      #! checking out the branch to the virtual machine
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 1
+
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          #! github authentication
+        run: |
+          #! running commands on the VM
+          #! for debugging 
+          echo "Creating label: version bump"
+          # * What is the purpose of creating labels when it will be predefined / automatically set?
+          gh label create "version bump" \
+            --description "Bump version when this PR is merged" \
+            --color "0E8A16" || true
+          echo "Creating label: automated-version-bump"
+          gh label create "automated-version-bump" \
+            --description "Set by workflow; used for loop prevention" \
+            --color "FBCA04" || true
+
+      - name: Check labels and decide whether to proceed
+        id: decide
+        #!  To get outputs from the step, we put IDs
+
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+        #! The PR number 
+          pr="${{ github.event.pull_request.number }}"
+          #!! Where the PR is being merged to
+          target="${{ github.event.pull_request.base.ref }}"
+
+          # No || true: API failures should fail this step, not silently skip
+          labels=$(gh pr view "$pr" --json labels --jq '.labels[].name')
+          #! Getting all the labels from the PR (--jq json query, looking for anything with .labels)
+
+          # Loop prevention: skip if this is itself an automated bump PR.
+          # If it was merged into main, tag the release instead.
+          if echo "$labels" | grep -qx "automated-version-bump"; then
+            echo "Skipping bump: merged PR is an automated version bump -- no further bump needed"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            #! GITHUB_OUTPUT is a value store
+
+            if [ "$target" = "main" ]; then
+              echo "tag=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "tag=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          #! backwards if (endif)
+          fi
+
+          # Only proceed if the merged PR carried the "version bump" label
+          if ! echo "$labels" | grep -qx "version bump"; then
+            echo "Skipping: merged PR does not have the 'version bump' label"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "tag=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false"   >> "$GITHUB_OUTPUT"
+          echo "tag=false"    >> "$GITHUB_OUTPUT"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version and create PR
+
+        if: steps.decide.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REF: ${{ steps.decide.outputs.target }}
+        run: |
+          #! what is this?
+          # ! -e => exit on error
+          # ! -u => exit on undefined variable
+          # ! -o => exit on pipeline error
+          # ! -x => debugging mode
+          set -euo pipefail
+
+          # Validate version.json -- use has() so major=0 is not treated as falsy
+          # ! It is now accessing the files on the VM -> since we did checkout earlier
+          # ! if verion.json does not have variable major or minor, it will exit with an error
+          #!  prevalidation checking
+          if ! jq -e 'has("major") and has("minor")' version.json > /dev/null; then
+            echo "::error::version.json is missing required fields .major and/or .minor"
+            exit 1
+          fi
+
+          # Automated bumps are always minor. Major/minor field in version.json is bumped
+          # manually when you want a new major line (e.g. 2.0).
+          # ! adding 1 to the minor version
+          jq '.minor += 1' version.json > tmp.json
+          mv tmp.json version.json
+          bump_type="minor"
+
+          # ! new version number
+          new_version=$(jq -r '"\(.major).\(.minor)"' version.json)
+          # ! hash of the commit
+          short_sha=$(git rev-parse --short HEAD)
+          # ! branch name of the version bump pr
+          branch_name="chore/auto-bump-v${new_version}-${short_sha}"
+
+          #! configuring the git user
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch_name"
+          git add version.json
+          git commit -m "chore: bump version to ${new_version}"
+          git push origin "$branch_name"
+
+          # Idempotent: don't fail if a bump PR already exists (e.g. workflow re-run)
+          # ! idempotent => exceution that can be repeated without changing the result
+          existing=$(gh pr list \
+            --head "$branch_name" \
+            --base "$TARGET_REF" \
+            --json number \
+            --jq '.[0].number // ""')
+
+          if [ -n "$existing" ]; then
+            echo "Bump PR already exists (#$existing) -- skipping creation"
+          else
+          # ! body of pr
+            pr_body="Automated **${bump_type}** version bump triggered by merging PR #${{ github.event.pull_request.number }} with the \`version bump\` label."
+            pr_body="${pr_body}"$'\n\n'"Merging this will set \`${TARGET_REF}\` to **v${new_version}**."
+
+            gh pr create \
+              --base "$TARGET_REF" \
+              --head "$branch_name" \
+              --title "chore: bump version to v${new_version}" \
+              --body "$pr_body" \
+              --label "automated-version-bump"
+
+            echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
+          fi
+
+      - name: Tag release on main
+      # ! if the tage == true => the branch is main
+        if: steps.decide.outputs.tag == 'true'
+        run: |
+          set -euo pipefail
+
+          version=$(jq -r '"\(.major).\(.minor)"' version.json)
+          tag="v${version}"
+
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists -- skipping"
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$tag" -m "Release ${tag}"
+            git push origin "$tag"
+            echo "Created and pushed tag $tag"
+          fi
