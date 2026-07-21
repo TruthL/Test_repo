@@ -35,17 +35,19 @@ jobs:
             git checkout -b staging origin/main
           fi
 
-      - name: Merge main → staging
-        run: |
-          # Prefer fast-forward only to keep history clean; fail if staging has diverged.
-          git merge --ff-only origin/main || {
-            echo "::error::staging has diverged from main. Resolve manually (or switch to a normal merge)."
-            exit 1
-          }
-          git push origin staging
-          echo "Pushed main to staging"
+      # - name: Merge main → staging
+      #   run: |
+      #     # Prefer fast-forward only to keep history clean; fail if staging has diverged.
+      #     git merge --ff-only origin/main || {
+      #       echo "::error::staging has diverged from main. Resolve manually (or switch to a normal merge)."
+      #       exit 1
+      #     }
+          # git push origin staging
+          # echo "Pushed main to staging"
           
       - name: Create PR main → staging
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr create \
             --base staging \
