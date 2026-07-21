@@ -1,3 +1,4 @@
 print("hellooooo")
 
-staging = True
+staging = False
+qa = True
