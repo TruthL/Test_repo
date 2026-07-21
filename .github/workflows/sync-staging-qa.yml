@@ -42,19 +42,20 @@ jobs:
             echo "::error::staging has diverged from main. Resolve manually (or switch to a normal merge)."
             exit 1
           }
-          # git push origin staging
-          # echo "Pushed main to staging"
+          git push origin staging
+          echo "Pushed main to staging"
           
-      - name: Create PR main → staging
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr create \
-            --base staging \
-            --head main \
-            --title "Sync main into staging" \
-            --body "Automated fast-forward sync from main" \
-          || echo "PR already exists."
+      # - name: Create PR main → staging
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     set -euo pipefail
+      #     gh pr create \
+      #       --base staging \
+      #       --head main \
+      #       --title "Sync main into staging" \
+      #       --body "Automated fast-forward sync from main" \
+      #     || echo "PR already exists."
 
       # ---- Nuke qa and recreate from main ----
       - name: Reset qa to main (force update)
