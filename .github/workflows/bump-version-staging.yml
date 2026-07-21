@@ -1,0 +1,66 @@
+name: Bump Version on Staging Before Merge
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  bump-version-on-approval:
+    # Runs only if:
+    # 1. PR review was approved
+    # 2. Target branch is main
+    # 3. Source branch is staging
+    # 4. PR has the 'version bump' label
+    if: >
+      github.event.review.state == 'approved' &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'staging' &&
+      contains(github.event.pull_request.labels.*.name, 'version bump')
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Generate token to bypass staging branch protection
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      # Step 2: Checkout the source branch (staging)
+      - name: Checkout Staging Branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ github.head_ref }} # 'staging'
+
+      # Step 3: Increment version in version.json
+      - name: Increment version.json
+        run: |
+          python3 -c "
+          import json
+
+          with open('version.json', 'r+') as f:
+              data = json.load(f)
+              if isinstance(data, dict) and 'version' in data:
+                  data['version'] = int(data['version']) + 1
+              elif isinstance(data, int):
+                  data += 1
+              f.seek(0)
+              json.dump(data, f, indent=2)
+              f.truncate()
+          "
+
+      # Step 4: Commit and Push directly back to staging
+      - name: Commit and Push to Staging
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet version.json; then
+            echo "No changes detected in version.json."
+          else
+            git add version.json
+            git commit -m "chore: bump version [skip ci]"
+            git push origin ${{ github.head_ref }}
+          fi
