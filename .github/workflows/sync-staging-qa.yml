@@ -42,6 +42,9 @@ jobs:
             echo "::error::staging has diverged from main. Resolve manually (or switch to a normal merge)."
             exit 1
           }
+          git push origin staging
+          echo "Pushed main to staging"
+          
       - name: Create PR main → staging
         run: |
           gh pr create \
