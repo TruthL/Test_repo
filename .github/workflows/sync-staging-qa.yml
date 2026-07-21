@@ -36,26 +36,35 @@ jobs:
           fi
 
       - name: Merge main → staging
+      # Do merge main back into staging via rebase
+      #  can only push to staging via PR if merge
         run: |
-          # Prefer fast-forward only to keep history clean; fail if staging has diverged.
-          git merge --ff-only origin/main || {
-            echo "::error::staging has diverged from main. Resolve manually (or switch to a normal merge)."
-            exit 1
-          }
+          git rebase origin/main
           git push origin staging
           echo "Pushed main to staging"
+        # run: |
+        #   # Prefer fast-forward only to keep history clean; fail if staging has diverged.
+        #   git merge --ff-only origin/main || {
+        #     echo "::error::staging has diverged from main. Resolve manually (or switch to a normal merge)."
+        #     exit 1
+        #   }
+        #   git push origin staging
+        #   echo "Pushed main to staging"
+
           
       # - name: Create PR main → staging
+      # This is needed in main repo since the branch rules for staging is that all changes should be made via PRs
+      # use git rebase to merge main into staging
       #   env:
       #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #   run: |
-      #     set -euo pipefail
       #     gh pr create \
       #       --base staging \
       #       --head main \
       #       --title "Sync main into staging" \
       #       --body "Automated fast-forward sync from main" \
       #     || echo "PR already exists."
+
 
       # ---- Nuke qa and recreate from main ----
       - name: Reset qa to main (force update)
