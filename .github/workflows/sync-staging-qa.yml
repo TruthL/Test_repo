@@ -25,76 +25,18 @@ jobs:
       - name: Fetch remotes
         run: git fetch origin "+refs/heads/*:refs/remotes/origin/*"
 
-      # ---- Merge main into staging with a PR ----
-      - name: Create or update sync PR (main → staging)
+
+      - name: Create PR main → staging
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          SYNC_BRANCH="sync/main-into-staging"
-          # Ensure staging exists; bootstrap from main on first run
-          if ! git ls-remote --exit-code --heads origin staging >/dev/null 2>&1; then
-            git push origin origin/main:refs/heads/staging
-            echo "Created staging from main"
-          fi
-          # No-op if staging already contains main
-          if git merge-base --is-ancestor origin/main origin/staging; then
-            echo "staging already contains main -- nothing to sync"
-            exit 0
-          fi
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Build sync branch from current staging, then merge main
-          git checkout -B "$SYNC_BRANCH" origin/staging
-          if ! git merge origin/main -m "chore: sync main into staging"; then
-            echo "::error::Conflict merging main into staging. Resolve manually."
-            git merge --abort || true
-            exit 1
-          fi
-          git push -u origin "$SYNC_BRANCH" --force-with-lease
-          existing=$(gh pr list \
+          gh pr create \
             --base staging \
-            --head "$SYNC_BRANCH" \
-            --state open \
-            --json number \
-            --jq '.[0].number // ""')
-          if [ -n "$existing" ]; then
-            echo "Sync PR already open (#$existing) -- updated head branch"
-            pr_number="$existing"
-          else
-            pr_number=$(gh pr create \
-              --base staging \
-              --head "$SYNC_BRANCH" \
-              --title "chore: sync main into staging" \
-              --body "$(cat <<'EOF'
-          Automated sync after updates to `main` (version bumps, hotfixes, etc.).
-          Safe to auto-merge when checks pass.
-          EOF
-          )" \
-              --json number \
-              --jq '.number')
-            echo "Created sync PR #$pr_number"
-          fi
-          # Requires "Allow auto-merge" in repo settings.
-          # Use --merge to keep a clear sync commit on staging.
-          gh pr merge "$pr_number" --auto --merge || \
-            echo "Auto-merge not enabled or blocked by required checks"
-
-      # Do merge main back into staging via rebase
-      #  can only push to staging via PR if merge
-
-      # - name: Create PR main → staging
-      # This is needed in main repo since the branch rules for staging is that all changes should be made via PRs
-      # use git rebase to merge main into staging
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: |
-      #     gh pr create \
-      #       --base staging \
-      #       --head main \
-      #       --title "Sync main into staging" \
-      #       --body "Automated fast-forward sync from main" \
-      #     || echo "PR already exists."
+            --head main \
+            --title "chore: sync main into staging" \
+            --body "Automated sync from main"
+          pr_number=$(gh pr create ... --json number --jq '.number')
+          gh pr merge "$pr_number" --auto --rebase
 
 
       # ---- Nuke qa and recreate from main ----
