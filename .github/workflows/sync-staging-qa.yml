@@ -25,33 +25,18 @@ jobs:
       - name: Fetch remotes
         run: git fetch origin "+refs/heads/*:refs/remotes/origin/*"
 
-      # # ---- Merge main into staging ----
-      # - name: Prepare local staging
-      #   run: |
-      #     if git ls-remote --exit-code --heads origin staging >/dev/null 2>&1; then
-      #       git checkout -B staging origin/staging
-      #     else
-      #       # if staging doesn't exist yet, create it from main the first time
-      #       git checkout -b staging origin/main
-      #     fi
 
-      # - name: Merge main → staging
-      # # Do merge main back into staging via rebase
-      # #  can only push to staging via PR if merge
-
-
-      # - name: Create PR main → staging
-      # This is needed in main repo since the branch rules for staging is that all changes should be made via PRs
-      # use git rebase to merge main into staging
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: |
-      #     gh pr create \
-      #       --base staging \
-      #       --head main \
-      #       --title "Sync main into staging" \
-      #       --body "Automated fast-forward sync from main" \
-      #     || echo "PR already exists."
+      - name: Create PR main → staging
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base staging \
+            --head main \
+            --title "chore: sync main into staging" \
+            --body "Automated sync from main"
+          pr_number=$(gh pr create ... --json number --jq '.number')
+          gh pr merge "$pr_number" --auto --rebase
 
 
       # ---- Nuke qa and recreate from main ----
