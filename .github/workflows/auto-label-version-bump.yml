@@ -1,0 +1,27 @@
+name: Auto-label staging-to-main PRs
+
+on:
+  pull_request:
+    types: [opened]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  add-label:
+    if: github.event.pull_request.head.ref == 'staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add version bump label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run:
+          gh label create "version bump" \
+            --repo "$GITHUB_REPOSITORY" \
+            --description "Bump version when this PR is merged" \
+            --color "0E8A16" || true
+
+          gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --add-label "version bump"
