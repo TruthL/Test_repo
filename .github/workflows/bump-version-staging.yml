@@ -11,7 +11,7 @@ jobs:
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.ref == 'staging' &&
       contains(github.event.pull_request.labels.*.name, 'version bump')
-      
+
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +19,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ADMIN_PAT }} # PAT or App Token with bypass privileges
           REPO: ${{ github.repository }}
-          BRANCH: ${{ github.head_ref }} # 'staging'
+          BRANCH: ${{ github.event.pull_request.head.ref || 'staging' }}
         run: |
           # 1. Fetch current version.json content and SHA from GitHub API
           FILE_DATA=$(gh api "repos/$REPO/contents/version.json?ref=$BRANCH")
