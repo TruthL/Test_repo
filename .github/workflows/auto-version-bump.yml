@@ -24,7 +24,7 @@ jobs:
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          ref: staging
           fetch-depth: 1
 
       - name: Ensure labels exist
@@ -125,7 +125,7 @@ jobs:
               --title "chore: bump version to v${new_version}" \
               --body "$pr_body" \
               --label "automated-version-bump"
-            gh pr merge --squash --delete-branch
+            gh pr merge  --squash --delete-branch
 
             echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
           fi
