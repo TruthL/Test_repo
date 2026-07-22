@@ -44,7 +44,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           pr="${{ github.event.pull_request.number }}"
-          target="${{ github.event.pull_request.base.ref }}" || "staging"
+          target="${{ github.event.pull_request.base.ref }}"
 
           # No || true: API failures should fail this step, not silently skip
           labels=$(gh pr view "$pr" --json labels --jq '.labels[].name')
@@ -79,7 +79,7 @@ jobs:
         if: steps.decide.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_REF: ${{ steps.decide.outputs.target }}
+          TARGET_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
 
