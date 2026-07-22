@@ -79,7 +79,7 @@ jobs:
         if: steps.decide.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_REF: ${{ github.event.pull_request.base.ref }}
+          TARGET_REF: staging
         run: |
           set -euo pipefail
 
