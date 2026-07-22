@@ -1,0 +1,24 @@
+name: Fast-Forward Staging to Main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  fast-forward-staging:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fast-forward staging branch pointer to main
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_PAT }} # PAT with bypass permissions for staging
+          REPO: ${{ github.repository }}
+          MAIN_SHA: ${{ github.sha }}
+        run: |
+          echo "Fast-forwarding staging branch to SHA: $MAIN_SHA"
+
+          # Update the git reference for staging directly to match main's SHA
+          gh api --method PATCH "repos/$REPO/git/refs/heads/staging" \
+            -f sha="$MAIN_SHA" \
+            -F force=false
