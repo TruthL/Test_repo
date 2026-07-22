@@ -119,14 +119,13 @@ jobs:
             pr_body="Automated **${bump_type}** version bump triggered by PR approval #${{ github.event.pull_request.number }} with the \`version bump\` label."
             pr_body="${pr_body}"$'\n\n'"Merging this will set \`${TARGET_REF}\` to **v${new_version}**."
 
-            pr_url = $(gh pr create \
+            gh pr create \
               --base "$TARGET_REF" \
               --head "$branch_name" \
               --title "chore: bump version to v${new_version}" \
               --body "$pr_body" \
               --label "automated-version-bump"
-              --json url -q .url)
-            gh pr merge "$pr_number"--squash --delete-branch
+            gh pr merge "$pr_number" --squash --delete-branch
 
             echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
           fi
