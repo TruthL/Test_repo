@@ -25,20 +25,7 @@ jobs:
       - name: Fetch remotes
         run: git fetch origin "+refs/heads/*:refs/remotes/origin/*"
 
-      - name: Create and Merge PR back to Staging
-        run: |
-          # Create PR from main into staging
-          PR_URL=$(gh pr create \
-            --base staging \
-            --head main \
-            --title "chore: sync version bump from main to staging" \
-            --body "Automated sync to keep staging and main commit histories aligned.")
-
-          # Auto-merge the PR
-          gh pr merge "$PR_URL" --merge
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+      
       # - name: Create PR main → staging
       #   env:
       #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
