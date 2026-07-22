@@ -33,6 +33,8 @@ jobs:
 
       # ---- Point staging to main ----
       - name: Point staging to main
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh api --method PATCH "repos/TruthL/Test_repo/git/refs/heads/staging" \
           -f sha="$(git rev-parse origin/main)" \
