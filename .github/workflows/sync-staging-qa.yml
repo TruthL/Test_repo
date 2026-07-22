@@ -25,36 +25,18 @@ jobs:
       - name: Fetch remotes
         run: git fetch origin "+refs/heads/*:refs/remotes/origin/*"
 
-      
-      # - name: Create PR main → staging
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: |
-      #     set -euo pipefail
-      #     # Skip if staging already has main (nothing to sync)
-      #     if git merge-base --is-ancestor origin/main origin/staging; then
-      #       echo "staging already contains main -- nothing to sync"
-      #       exit 0
-      #     fi
-      #     existing=$(gh pr list \
-      #       --base staging \
-      #       --head main \
-      #       --state open \
-      #       --json number \
-      #       --jq '.[0].number // ""')
-      #     if [ -n "$existing" ]; then
-      #       pr_number="$existing"
-      #       echo "Sync PR already open (#$pr_number)"
-      #     else
-      #       pr_number=$(gh pr create \
-      #         --base staging \
-      #         --head main \
-      #         --title "chore: sync main into staging" \
-      #         --body "Automated sync from main" \
-      #         --json number \
-      #         --jq '.number')
-      #       echo "Created sync PR #$pr_number"
-      #     fi
+      - name: Fast-forward staging branch pointer to main
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_PAT }} # PAT with bypass permissions for staging
+          REPO: ${{ github.repository }}
+          MAIN_SHA: ${{ github.sha }}
+        run: |
+          echo "Fast-forwarding staging branch to SHA: $MAIN_SHA"
+
+          # Update the git reference for staging directly to match main's SHA
+          gh api --method PATCH "repos/$REPO/git/refs/heads/staging" \
+            -f sha="$MAIN_SHA" \
+            -F force=false
 
       # ---- Nuke qa and recreate from main ----
       - name: Reset qa to main (force update)
