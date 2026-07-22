@@ -1,5 +1,5 @@
 name: Auto-label staging-to-main PRs
-
+# auto labels the staging-to-main PRs with version bump label
 on:
   pull_request:
     types: [opened]
