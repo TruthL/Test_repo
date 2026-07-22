@@ -25,19 +25,6 @@ jobs:
       - name: Fetch remotes
         run: git fetch origin "+refs/heads/*:refs/remotes/origin/*"
 
-      - name: Fast-forward staging branch pointer to main
-        env:
-          GH_TOKEN: ${{ secrets.ADMIN_PAT }} # PAT with bypass permissions for staging
-          REPO: ${{ github.repository }}
-          MAIN_SHA: ${{ github.sha }}
-        run: |
-          echo "Fast-forwarding staging branch to SHA: $MAIN_SHA"
-
-          # Update the git reference for staging directly to match main's SHA
-          gh api --method PATCH "repos/$REPO/git/refs/heads/staging" \
-            -f sha="$MAIN_SHA" \
-            -F force=false
-
       # ---- Nuke qa and recreate from main ----
       - name: Reset qa to main (force update)
         run: |
