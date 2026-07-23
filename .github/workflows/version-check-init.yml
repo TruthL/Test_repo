@@ -1,0 +1,30 @@
+name: Initialize Version Bump Check
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  block-merge:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Set Status to Pending
+        env: 
+          GH_TOKEN: ${{steps.generate-token.outputs.token}}
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{GH_TOKEN}}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }} \
+            -d '{
+              "state": "pending",
+              "context": "version-bump/approved",
+              "description": "Waiting for version bump PR approval and merge."
+            }'
