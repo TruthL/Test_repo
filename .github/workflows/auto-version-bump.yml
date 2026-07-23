@@ -106,7 +106,7 @@ jobs:
           git commit -m "chore: bump version to ${new_version}"
           git push origin "$branch_name"
 
-          # Idempotent: don't fail if a bump PR already exists (e.g. workflow re-run)
+          # Idempotent: fail if a bump PR already exists (e.g. workflow re-run)
           existing=$(gh pr list \
             --head "$branch_name" \
             --base "$TARGET_REF" \
@@ -115,6 +115,7 @@ jobs:
 
           if [ -n "$existing" ]; then
             echo "Bump PR already exists (#$existing) -- skipping creation"
+            exit 1
           else
             pr_body="Automated **${bump_type}** version bump triggered by PR approval #${{ github.event.pull_request.number }} with the \`version bump\` label."
             pr_body="${pr_body}"$'\n\n'"Merging this will set \`${TARGET_REF}\` to **v${new_version}**."
@@ -128,6 +129,7 @@ jobs:
             gh pr merge  --squash --delete-branch
 
             echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
+
           fi
 
       - name: Tag release on main
