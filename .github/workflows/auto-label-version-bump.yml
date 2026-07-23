@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   add-label:
-    if: github.event.pull_request.head.ref == 'staging'
+    if: github.event.pull_request.head.ref == 'new-staging'
     runs-on: ubuntu-latest
     steps:
       - name: Add version bump label
