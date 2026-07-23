@@ -3,7 +3,7 @@ name: Auto-label staging-to-main PRs
 on:
   pull_request:
     types: [opened]
-    branches: [new-staging]
+    branches: [main]
 
 permissions:
   pull-requests: write
