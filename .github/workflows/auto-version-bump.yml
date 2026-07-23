@@ -122,7 +122,7 @@ jobs:
           else
             pr_body="Automated **${bump_type}** version bump triggered by PR approval #${{ github.event.pull_request.number }} with the \`version bump\` label."
             pr_body="${pr_body}"$'\n\n'"Merging this will set \`${TARGET_REF}\` to **v${new_version}**."
-
+            pr_body="${pr_body}"$'\n\n'"Parent-PR: ${{ github.event.pull_request.number }}"
             gh pr create \
               --base "$TARGET_REF" \
               --head "$branch_name" \
