@@ -40,7 +40,7 @@ jobs:
           gh label create "version bump" \
             --description "Bump version when this PR is approved" \
             --color "0E8A16" || true
-            
+
           gh label create "version bumped" \
             --description "Set by workflow; used for loop prevention" \
             --color "FBCA04" || true
@@ -76,16 +76,14 @@ jobs:
           echo "tag=false"    >> "$GITHUB_OUTPUT"
           echo "target=$target" >> "$GITHUB_OUTPUT"
 
-      - name: Bump version and create PR
+      - name: Bump version and push to origin
         if: steps.decide.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           TARGET_REF: new-staging
-          PARENT_PR: ${{ github.event.pull_request.number }}
-        run: |
-          set -euo pipefail
 
-          # Validate version.json -- use has() so major=0 is not treated as falsy
+        run: |
+        # Validate version.json -- use has() so major=0 is not treated as falsy
           if ! jq -e 'has("major") and has("minor")' version.json > /dev/null; then
             echo "::error::version.json is missing required fields .major and/or .minor"
             exit 1
@@ -98,38 +96,65 @@ jobs:
           bump_type="minor"
 
           new_version=$(jq -r '"\(.major).\(.minor)"' version.json)
-          short_sha=$(git rev-parse --short HEAD)
-          branch_name="chore/auto-bump-v${new_version}-${short_sha}"
-
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch_name"
           git add version.json
           git commit -m "chore: bump version to ${new_version}"
-          git push origin "$branch_name" --force
+          git push origin "$TARGET_REF"
+          echo "Created version bump commit -> v${new_version} "
 
-          # Idempotent: fail if a bump PR already exists (e.g. workflow re-run)
-          existing=$(gh pr list \
-            --head "$branch_name" \
-            --base "$TARGET_REF" \
-            --json number \
-            --jq '.[0].number // ""')
+      # - name: Bump version and create PR
+      #   if: steps.decide.outputs.skip == 'false'
+      #   env:
+      #     GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+      #     TARGET_REF: new-staging
+      #     PARENT_PR: ${{ github.event.pull_request.number }}
+      #   run: |
+      #     set -euo pipefail
 
-          if [ -n "$existing" ]; then
-            echo "Bump PR already exists (#$existing) -- skipping creation"
-            exit 1
-          else
-            pr_body="Automated **${bump_type}** version bump triggered by PR approval #${{ github.event.pull_request.number }} with the \`version bump\` label."
-            pr_body="${pr_body}"$'\n\n'"Merging this will set \`${TARGET_REF}\` to **v${new_version}**."
+      #     # Validate version.json -- use has() so major=0 is not treated as falsy
+      #     if ! jq -e 'has("major") and has("minor")' version.json > /dev/null; then
+      #       echo "::error::version.json is missing required fields .major and/or .minor"
+      #       exit 1
+      #     fi
 
-            gh pr create \
-              --base "$TARGET_REF" \
-              --head "$branch_name" \
-              --title "chore: bump version to v${new_version}" \
-              --body "$pr_body" \
-              --label "automated-version-bump"
-            gh pr merge  --admin --squash --delete-branch
+      #     # Automated bumps are always minor. Major/minor field in version.json is bumped
+      #     # manually when you want a new major line (e.g. 2.0).
+      #     jq '.minor += 1' version.json > tmp.json
+      #     mv tmp.json version.json
+      #     bump_type="minor"
 
-            gh pr edit "$PARENT_PR" --add-label "version bumped"
-            echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
-          fi
+      #     new_version=$(jq -r '"\(.major).\(.minor)"' version.json)
+      #     short_sha=$(git rev-parse --short HEAD)
+      #     branch_name="chore/auto-bump-v${new_version}-${short_sha}"
+
+      #     git config user.name  "github-actions[bot]"
+      #     git config user.email "github-actions[bot]@users.noreply.github.com"
+      #     git checkout -b "$branch_name"
+      #     git add version.json
+      #     git commit -m "chore: bump version to ${new_version}"
+      #     git push origin "$branch_name" --force
+
+      #     # Idempotent: fail if a bump PR already exists (e.g. workflow re-run)
+      #     existing=$(gh pr list \
+      #       --head "$branch_name" \
+      #       --base "$TARGET_REF" \
+      #       --json number \
+      #       --jq '.[0].number // ""')
+
+      #     if [ -n "$existing" ]; then
+      #       echo "Bump PR already exists (#$existing) -- skipping creation"
+      #       exit 1
+      #     else
+      #       pr_body="Automated **${bump_type}** version bump triggered by PR approval #${{ github.event.pull_request.number }} with the \`version bump\` label."
+      #       pr_body="${pr_body}"$'\n\n'"Merging this will set \`${TARGET_REF}\` to **v${new_version}**."
+
+      #       gh pr create \
+      #         --base "$TARGET_REF" \
+      #         --head "$branch_name" \
+      #         --title "chore: bump version to v${new_version}" \
+      #         --body "$pr_body" \
+      #         --label "automated-version-bump"
+      #       gh pr merge  --admin --squash --delete-branch
+
+      #       gh pr edit "$PARENT_PR" --add-label "version bumped"
+      #       echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
+      #     fi
