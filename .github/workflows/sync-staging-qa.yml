@@ -37,5 +37,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api --method PATCH "repos/TruthL/Test_repo/git/refs/heads/new-staging" \
-          -f sha="$(git rev-parse origin/main)" \
-          -F force=true
+          -f sha="$(git rev-parse origin/main)" 
+          -F force=false
+      
