@@ -8,7 +8,7 @@ jobs:
   block-merge:
     runs-on: ubuntu-latest
     steps:
-    - name: Generate GitHub App Token
+      - name: Generate GitHub App Token
         id: generate-token
         uses: actions/create-github-app-token@v1
         with:
