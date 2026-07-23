@@ -73,6 +73,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_REF: new-staging
+          PARENT_PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
 
@@ -121,24 +122,6 @@ jobs:
               --label "automated-version-bump"
             gh pr merge  --squash --delete-branch
 
+            gh pr edit "$PARENT_PR" --add-label "version bumped"
             echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
-
-          fi
-
-      - name: Tag release on main
-        if: steps.decide.outputs.tag == 'true'
-        run: |
-          set -euo pipefail
-
-          version=$(jq -r '"\(.major).\(.minor)"' version.json)
-          tag="v${version}"
-
-          if git rev-parse "$tag" >/dev/null 2>&1; then
-            echo "Tag $tag already exists -- skipping"
-          else
-            git config user.name  "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag -a "$tag" -m "Release ${tag}"
-            git push origin "$tag"
-            echo "Created and pushed tag $tag"
           fi
