@@ -25,3 +25,4 @@ jobs:
             --color "0E8A16" || true
 
           gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --add-label "version bump"
+          
