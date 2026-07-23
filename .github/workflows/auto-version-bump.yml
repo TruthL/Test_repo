@@ -20,11 +20,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout target branch
-        uses: actions/checkout@v4
-        with:
-          ref: new-staging
-          fetch-depth: 1
 
       - name: Generate GitHub App Token
         id: generate-token
@@ -32,6 +27,12 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: new-staging
+          fetch-depth: 1
 
       - name: Ensure labels exist
         env:
@@ -128,8 +129,7 @@ jobs:
               --title "chore: bump version to v${new_version}" \
               --body "$pr_body" \
               --label "automated-version-bump"
-            gh pr merge  --admin --squash --delete-branch
 
-            gh pr edit "$PARENT_PR" --add-label "version bumped"
+            gh pr edit "$PARENT_PR" --add-label "version bumped" # this needs human interference
             echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
           fi
