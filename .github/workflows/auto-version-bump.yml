@@ -127,7 +127,7 @@ jobs:
               --title "chore: bump version to v${new_version}" \
               --body "$pr_body" \
               --label "automated-version-bump"
-            gh pr merge  --squash --delete-branch
+            gh pr merge  --admin --squash --delete-branch
 
             gh pr edit "$PARENT_PR" --add-label "version bumped"
             echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
