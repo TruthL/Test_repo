@@ -40,7 +40,7 @@ jobs:
       - name: Check labels and decide whether to proceed
         id: decide
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
         run: |
           pr="${{ github.event.pull_request.number }}"
           target="${{ github.event.pull_request.base.ref }}"
@@ -71,7 +71,7 @@ jobs:
       - name: Bump version and create PR
         if: steps.decide.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
           TARGET_REF: new-staging
           PARENT_PR: ${{ github.event.pull_request.number }}
         run: |
