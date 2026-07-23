@@ -35,7 +35,7 @@ jobs:
 
       - name: Ensure labels exist
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token}}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           gh label create "version bump" \
             --description "Bump version when this PR is approved" \
@@ -47,7 +47,7 @@ jobs:
       - name: Check labels and decide whether to proceed
         id: decide
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token}}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           pr="${{ github.event.pull_request.number }}"
           target="${{ github.event.pull_request.base.ref }}"
@@ -78,7 +78,7 @@ jobs:
       - name: Bump version and create PR
         if: steps.decide.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token}}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           TARGET_REF: new-staging
           PARENT_PR: ${{ github.event.pull_request.number }}
         run: |
@@ -105,7 +105,7 @@ jobs:
           git checkout -b "$branch_name"
           git add version.json
           git commit -m "chore: bump version to ${new_version}"
-          git push origin "$branch_name"
+          git push origin "$branch_name" --force
 
           # Idempotent: fail if a bump PR already exists (e.g. workflow re-run)
           existing=$(gh pr list \
