@@ -7,11 +7,14 @@ on:
 permissions:
   pull-requests: write
   issues: write
+  statuses: write
 
 jobs:
   update-status:
-    # Only run if the closed PR was a version bump PR AND it was actually merged (not closed without merging)
-    if: github.event.pull_request.merged == true && contains(github.event.pull_request.head.ref, 'version-bump')
+    # Run for automated bump PRs (merged or closed without merge)
+    if: >
+      contains(github.event.pull_request.labels.*.name, 'automated-version-bump') ||
+      startsWith(github.event.pull_request.head.ref, 'chore/auto-bump-')
     runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App Token
@@ -21,25 +24,61 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Get parent PR SHA
+      - name: Resolve parent PR SHA
         id: get-sha
-        run: |
-          MAIN_PR_SHA=$(gh pr view ${{github.event.pull_request.number}} --json headRefOid --jq '.headRefOid')
-          echo "MAIN_PR_SHA=$MAIN_PR_SHA" >> $GITHUB_OUTPUT
-
-      - name: Set Status to Success on Main PR
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-          # Fetch the head SHA of the main PR associated with this version bump
-          MAIN_PR_SHA="${{ steps.get-sha.outputs.sha }}"
-          
+          set -euo pipefail
+
+          body=$(gh pr view ${{ github.event.pull_request.number }} --json body --jq .body)
+          parent_pr=$(echo "$body" | grep -oE 'Parent-PR:[[:space:]]*[0-9]+' | head -n1 | grep -oE '[0-9]+')
+
+          if [ -z "${parent_pr:-}" ]; then
+            echo "::error::Could not parse Parent-PR from bump PR body"
+            exit 1
+          fi
+
+          parent_sha=$(gh pr view "$parent_pr" --json headRefOid --jq .headRefOid)
+          echo "parent_pr=$parent_pr" >> "$GITHUB_OUTPUT"
+          echo "sha=$parent_sha" >> "$GITHUB_OUTPUT"
+          echo "Resolved parent PR #$parent_pr at SHA $parent_sha"
+
+      - name: Set Status to Success on Parent PR
+        if: github.event.pull_request.merged == true
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          PARENT_SHA: ${{ steps.get-sha.outputs.sha }}
+          PARENT_PR: ${{ steps.get-sha.outputs.parent_pr }}
+        run: |
+          set -euo pipefail
+
           curl -X POST \
             -H "Authorization: token $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/statuses/$MAIN_PR_SHA \
+            "https://api.github.com/repos/${{ github.repository }}/statuses/${PARENT_SHA}" \
             -d '{
               "state": "success",
               "context": "version-bump/approved",
               "description": "Version bump has been approved and merged!"
+            }'
+
+          gh pr edit "$PARENT_PR" --add-label "version bumped" || true
+
+      - name: Set Status to Failure on Parent PR
+        if: github.event.pull_request.merged != true
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          PARENT_SHA: ${{ steps.get-sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          curl -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/statuses/${PARENT_SHA}" \
+            -d '{
+              "state": "failure",
+              "context": "version-bump/approved",
+              "description": "Version bump PR was closed without merging."
             }'
