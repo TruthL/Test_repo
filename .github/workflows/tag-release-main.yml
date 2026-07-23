@@ -8,9 +8,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write        # git push bump branch + tags
-  pull-requests: write   # create PR, read merged PR
-  issues: write          # gh label create (labels use Issues API)
+  contents: write        # git push tags
 
 jobs:
   tag-release:
@@ -24,14 +22,15 @@ jobs:
 
       - name: Tag release
         run: |
-        if echo "$labels" | grep -qx "automated-version-bump"; then
-            echo "Skipping bump: merged PR is an automated version bump -- no further bump needed"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-
-            if [ "$target" = "main" ]; then
-              echo "tag=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "tag=false" >> "$GITHUB_OUTPUT"
-            fi
-            exit 0
+          set -euo pipefail
+          version = $(jq -r '"\(.major).\(.minor)"' version.json)
+          tag = "v${version}"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists -- skipping"
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$tag" -m "Release ${tag}"
+            git push origin "$tag"
+            echo "Created and pushed tag $tag"
           fi
