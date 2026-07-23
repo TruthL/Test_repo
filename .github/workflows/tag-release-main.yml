@@ -1,0 +1,37 @@
+# When PR is merged into main, tag the release
+
+name: Tag release on main
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write        # git push bump branch + tags
+  pull-requests: write   # create PR, read merged PR
+  issues: write          # gh label create (labels use Issues API)
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Tag release
+        run: |
+        if echo "$labels" | grep -qx "automated-version-bump"; then
+            echo "Skipping bump: merged PR is an automated version bump -- no further bump needed"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+
+            if [ "$target" = "main" ]; then
+              echo "tag=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "tag=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
