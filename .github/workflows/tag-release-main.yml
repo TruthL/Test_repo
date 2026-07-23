@@ -23,8 +23,10 @@ jobs:
       - name: Tag release
         run: |
           set -euo pipefail
-          version = $(jq -r '"\(.major).\(.minor)"' version.json)
-          tag = "v${version}"
+
+          version=$(jq -r '"\(.major).\(.minor)"' version.json)
+          tag="v${version}"
+
           if git rev-parse "$tag" >/dev/null 2>&1; then
             echo "Tag $tag already exists -- skipping"
           else
