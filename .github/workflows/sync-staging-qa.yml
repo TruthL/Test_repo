@@ -22,6 +22,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Fetch remotes
         run: git fetch origin "+refs/heads/*:refs/remotes/origin/*"
 
@@ -34,7 +41,7 @@ jobs:
       # ---- Point staging to main ----
       - name: Point staging to main
         env:
-          GH_TOKEN: ${{ secrets.BOT_PAT }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           gh api --method PATCH "repos/TruthL/Test_repo/git/refs/heads/new-staging" \
           -f sha="$(git rev-parse origin/main)"

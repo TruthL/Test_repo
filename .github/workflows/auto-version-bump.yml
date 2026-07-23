@@ -26,9 +26,16 @@ jobs:
           ref: new-staging
           fetch-depth: 1
 
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Ensure labels exist
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token}}
         run: |
           gh label create "version bump" \
             --description "Bump version when this PR is approved" \
@@ -40,7 +47,7 @@ jobs:
       - name: Check labels and decide whether to proceed
         id: decide
         env:
-          GH_TOKEN: ${{ secrets.BOT_PAT }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token}}
         run: |
           pr="${{ github.event.pull_request.number }}"
           target="${{ github.event.pull_request.base.ref }}"
@@ -71,7 +78,7 @@ jobs:
       - name: Bump version and create PR
         if: steps.decide.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.BOT_PAT }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token}}
           TARGET_REF: new-staging
           PARENT_PR: ${{ github.event.pull_request.number }}
         run: |
