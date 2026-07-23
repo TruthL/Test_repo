@@ -61,6 +61,7 @@ jobs:
             echo "Skipping: approved PR does not have the 'version bump' label"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "tag=false" >> "$GITHUB_OUTPUT"
+            
             exit 0
           fi
 
