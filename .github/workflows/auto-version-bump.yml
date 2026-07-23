@@ -34,7 +34,7 @@ jobs:
           gh label create "version bump" \
             --description "Bump version when this PR is approved" \
             --color "0E8A16" || true
-          gh label create "automated-version-bump" \
+          gh label create "version bumped" \
             --description "Set by workflow; used for loop prevention" \
             --color "FBCA04" || true
 
@@ -49,17 +49,10 @@ jobs:
           # No || true: API failures should fail this step, not silently skip
           labels=$(gh pr view "$pr" --json labels --jq '.labels[].name')
 
-          # Loop prevention: skip if this is itself an automated bump PR.
-          # If it was merged into main, tag the release instead.
-          if echo "$labels" | grep -qx "automated-version-bump"; then
-            echo "Skipping bump: approved PR is an automated version bump -- no further bump needed"
+          # Loop prevention: skip if this PR has been "version bumped".
+          if echo "$labels" | grep -qx "version bumped"; then
+            echo "Skipping bump: approved PR has been updated -- no further bump needed"
             echo "skip=true" >> "$GITHUB_OUTPUT"
-
-            if [ "$target" = "new-staging" ]; then
-              echo "tag=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "tag=false" >> "$GITHUB_OUTPUT"
-            fi
             exit 0
           fi
 

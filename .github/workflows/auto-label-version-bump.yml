@@ -3,7 +3,7 @@ name: Auto-label staging-to-main PRs
 on:
   pull_request:
     types: [opened]
-    branches: [main]
+    branches: [new-staging]
 
 permissions:
   pull-requests: write
@@ -25,4 +25,3 @@ jobs:
             --color "0E8A16" || true
 
           gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --add-label "version bump"
-          
