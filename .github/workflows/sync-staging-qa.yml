@@ -25,17 +25,21 @@ jobs:
       - name: Fetch remotes
         run: git fetch origin "+refs/heads/*:refs/remotes/origin/*"
 
+      - name: Fast-forward staging branch pointer to main
+        env:
+          GH_TOKEN: ${{ github.token }} # PAT with bypass permissions for staging
+          REPO: ${{ github.repository }}
+          MAIN_SHA: ${{ github.sha }}
+        run: |
+          echo "Fast-forwarding staging branch to SHA: $MAIN_SHA"
+
+          # Update the git reference for staging directly to match main's SHA
+          gh api --method PATCH "repos/$REPO/git/refs/heads/staging" \
+            -f sha="$MAIN_SHA" \
+            -F force=false
+
       # ---- Nuke qa and recreate from main ----
       - name: Reset qa to main (force update)
         run: |
           # This force-updates qa to the exact tip of main (equivalent to delete & recreate)
           git push --force-with-lease origin +refs/heads/main:refs/heads/qa
-
-      # ---- Point staging to main ----
-      - name: Point staging to main
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api --method PATCH "repos/TruthL/Test_repo/git/refs/heads/staging" \
-          -f sha="$(git rev-parse origin/main)" \
-          -F force=true
