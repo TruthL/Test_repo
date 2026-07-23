@@ -101,3 +101,4 @@ jobs:
           git commit -m "chore: bump version to ${new_version}"
           git push origin "$TARGET_REF"
           echo "Created version bump commit -> v${new_version} "
+          
