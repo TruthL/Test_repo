@@ -130,6 +130,4 @@ jobs:
               --body "$pr_body" \
               --label "automated-version-bump"
 
-            gh pr edit "$PARENT_PR" --add-label "version bumped" # this needs human interference
-            echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
           fi
