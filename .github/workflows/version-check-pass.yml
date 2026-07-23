@@ -4,12 +4,29 @@ on:
   pull_request:
     types: [closed]
 
+permissions:
+  pull-requests: write
+  issues: write
+
 jobs:
   update-status:
     # Only run if the closed PR was a version bump PR AND it was actually merged (not closed without merging)
     if: github.event.pull_request.merged == true && contains(github.event.pull_request.head.ref, 'version-bump')
     runs-on: ubuntu-latest
     steps:
+    
+      - name: Add version bump label to parent PR
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run:
+          gh label create "version bumped" \
+            --repo "$GITHUB_REPOSITORY" \
+            --description "Version bump has been approved and merged" \
+            --color "FBCA04" || true
+
+          gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --add-label "version bumped"
+
       - name: Set Status to Success on Main PR
         run: |
           # Fetch the head SHA of the main PR associated with this version bump
