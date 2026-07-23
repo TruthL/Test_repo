@@ -3,7 +3,7 @@ name: Handle PR Approval
 on:
   pull_request_review:
     types: [submitted]
-    branches: [staging]
+    branches: [new-staging]
 
 permissions:
   contents: write        # git push bump branch + tags
@@ -24,7 +24,7 @@ jobs:
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
-          ref: staging
+          ref: new-staging
           fetch-depth: 1
 
       - name: Ensure labels exist
@@ -55,7 +55,7 @@ jobs:
             echo "Skipping bump: approved PR is an automated version bump -- no further bump needed"
             echo "skip=true" >> "$GITHUB_OUTPUT"
 
-            if [ "$target" = "staging" ]; then
+            if [ "$target" = "new-staging" ]; then
               echo "tag=true" >> "$GITHUB_OUTPUT"
             else
               echo "tag=false" >> "$GITHUB_OUTPUT"
@@ -79,7 +79,7 @@ jobs:
         if: steps.decide.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_REF: staging
+          TARGET_REF: new-staging
         run: |
           set -euo pipefail
 
