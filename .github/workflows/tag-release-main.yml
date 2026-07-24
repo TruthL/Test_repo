@@ -14,6 +14,21 @@ jobs:
   tag-release:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      
+      - name: Get bot user ID
+        id: get-bot-user-id
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          BOT_USER_ID=$(gh api "users/bot-actions-jtl%5Bbot%5D" --jq .id)
+          echo "bot-user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
+
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
@@ -21,17 +36,19 @@ jobs:
           fetch-depth: 1
 
       - name: Tag release
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           set -euo pipefail
-
           version=$(jq -r '"\(.major).\(.minor)"' version.json)
           tag="v${version}"
-
           if git rev-parse "$tag" >/dev/null 2>&1; then
             echo "Tag $tag already exists -- skipping"
           else
-            git config user.name  "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
+            BOT_USER_ID="${{ steps.get-bot-user-id.outputs.bot-user-id }}"
+            git config user.name  "bot-actions-jtl[bot]"
+            git config user.email "${BOT_USER_ID}+bot-actions-jtl[bot]@users.noreply.github.com"
+
             git tag -a "$tag" -m "Release ${tag}"
             git push origin "$tag"
             echo "Created and pushed tag $tag"
