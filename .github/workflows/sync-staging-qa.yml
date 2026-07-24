@@ -22,6 +22,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Fetch remotes
         run: git fetch origin "+refs/heads/*:refs/remotes/origin/*"
 
@@ -30,12 +37,11 @@ jobs:
         run: |
           # This force-updates qa to the exact tip of main (equivalent to delete & recreate)
           git push --force-with-lease origin +refs/heads/main:refs/heads/qa
-
+  
       # ---- Point staging to main ----
       - name: Point staging to main
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-          gh api --method PATCH "repos/TruthL/Test_repo/git/refs/heads/staging" \
-          -f sha="$(git rev-parse origin/main)" \
-          -F force=true
+          gh api --method PATCH "repos/TruthL/Test_repo/git/refs/heads/new-staging" \
+          -f sha="$(git rev-parse origin/main)"

@@ -11,17 +11,26 @@ permissions:
 
 jobs:
   add-label:
-    if: github.event.pull_request.head.ref == 'staging'
+    if: github.event.pull_request.head.ref == 'new-staging'
     runs-on: ubuntu-latest
     steps:
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      
       - name: Add version bump label
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_REPO: ${{ github.repository}}
+
           PR: ${{ github.event.pull_request.number }}
         run:
           gh label create "version bump" \
-            --repo "$GITHUB_REPOSITORY" \
+            --repo "$GH_REPO" \
             --description "Bump version when this PR is merged" \
             --color "0E8A16" || true
 
-          gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --add-label "version bump"
+          gh pr edit "$PR" --repo "$GH_REPO" --add-label "version bump"

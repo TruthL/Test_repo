@@ -1,9 +1,8 @@
 name: Handle PR Approval
-
 on:
   pull_request_review:
     types: [submitted]
-    branches: [staging]
+    branches: [new-staging]
 
 permissions:
   contents: write        # git push bump branch + tags
@@ -21,27 +20,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
-          ref: staging
+          ref: new-staging
           fetch-depth: 1
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Ensure labels exist
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           gh label create "version bump" \
             --description "Bump version when this PR is approved" \
             --color "0E8A16" || true
-          gh label create "automated-version-bump" \
+            
+          gh label create "version bumped" \
             --description "Set by workflow; used for loop prevention" \
             --color "FBCA04" || true
 
       - name: Check labels and decide whether to proceed
         id: decide
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           pr="${{ github.event.pull_request.number }}"
           target="${{ github.event.pull_request.base.ref }}"
@@ -49,17 +58,10 @@ jobs:
           # No || true: API failures should fail this step, not silently skip
           labels=$(gh pr view "$pr" --json labels --jq '.labels[].name')
 
-          # Loop prevention: skip if this is itself an automated bump PR.
-          # If it was merged into main, tag the release instead.
-          if echo "$labels" | grep -qx "automated-version-bump"; then
-            echo "Skipping bump: approved PR is an automated version bump -- no further bump needed"
+          # Loop prevention: skip if this PR has been "version bumped".
+          if echo "$labels" | grep -qx "version bumped"; then
+            echo "Skipping bump: approved PR has been updated -- no further bump needed"
             echo "skip=true" >> "$GITHUB_OUTPUT"
-
-            if [ "$target" = "staging" ]; then
-              echo "tag=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "tag=false" >> "$GITHUB_OUTPUT"
-            fi
             exit 0
           fi
 
@@ -68,6 +70,7 @@ jobs:
             echo "Skipping: approved PR does not have the 'version bump' label"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "tag=false" >> "$GITHUB_OUTPUT"
+
             exit 0
           fi
 
@@ -75,13 +78,16 @@ jobs:
           echo "tag=false"    >> "$GITHUB_OUTPUT"
           echo "target=$target" >> "$GITHUB_OUTPUT"
 
-      - name: Bump version and create PR
+      - name: Bump version and push to staging
         if: steps.decide.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_REF: staging
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          TARGET_REF: new-staging
+          PARENT_PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          git config user.name  "bot-actions-jtl[bot]"
+          git config user.email "${{ secrets.APP_ID }}+bot-actions-jtl[bot]@users.noreply.github.com"
 
           # Validate version.json -- use has() so major=0 is not treated as falsy
           if ! jq -e 'has("major") and has("minor")' version.json > /dev/null; then
@@ -99,51 +105,7 @@ jobs:
           short_sha=$(git rev-parse --short HEAD)
           branch_name="chore/auto-bump-v${new_version}-${short_sha}"
 
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch_name"
           git add version.json
           git commit -m "chore: bump version to ${new_version}"
-          git push origin "$branch_name"
-
-          # Idempotent: don't fail if a bump PR already exists (e.g. workflow re-run)
-          existing=$(gh pr list \
-            --head "$branch_name" \
-            --base "$TARGET_REF" \
-            --json number \
-            --jq '.[0].number // ""')
-
-          if [ -n "$existing" ]; then
-            echo "Bump PR already exists (#$existing) -- skipping creation"
-          else
-            pr_body="Automated **${bump_type}** version bump triggered by PR approval #${{ github.event.pull_request.number }} with the \`version bump\` label."
-            pr_body="${pr_body}"$'\n\n'"Merging this will set \`${TARGET_REF}\` to **v${new_version}**."
-
-            gh pr create \
-              --base "$TARGET_REF" \
-              --head "$branch_name" \
-              --title "chore: bump version to v${new_version}" \
-              --body "$pr_body" \
-              --label "automated-version-bump"
-            gh pr merge  --squash --delete-branch
-
-            echo "Created version bump PR -> v${new_version} ($branch_name -> $TARGET_REF)"
-          fi
-
-      - name: Tag release on main
-        if: steps.decide.outputs.tag == 'true'
-        run: |
-          set -euo pipefail
-
-          version=$(jq -r '"\(.major).\(.minor)"' version.json)
-          tag="v${version}"
-
-          if git rev-parse "$tag" >/dev/null 2>&1; then
-            echo "Tag $tag already exists -- skipping"
-          else
-            git config user.name  "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag -a "$tag" -m "Release ${tag}"
-            git push origin "$tag"
-            echo "Created and pushed tag $tag"
-          fi
+          git push origin HEAD:new-staging
+          gh pr edit "$PARENT_PR" --add-label "version bumped"
