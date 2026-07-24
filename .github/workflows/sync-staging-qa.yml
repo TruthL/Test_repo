@@ -45,5 +45,5 @@ jobs:
           echo "Fast-forwarding staging branch to main"
           REPO="${{ github.repository }}"
           # Update the git reference for staging directly to match main's SHA
-          gh api --method PATCH "repos/$REPO/git/refs/heads/staging" \
+          gh api --method PATCH "repos/$REPO/git/refs/heads/new-staging" \
           -f sha="$(git rev-parse origin/main )" 
