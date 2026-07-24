@@ -33,6 +33,7 @@ jobs:
         with:
           ref: new-staging
           fetch-depth: 1
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Ensure labels exist
         env:
@@ -77,7 +78,7 @@ jobs:
           echo "tag=false"    >> "$GITHUB_OUTPUT"
           echo "target=$target" >> "$GITHUB_OUTPUT"
 
-      - name: Bump version and create PR
+      - name: Bump version and push to staging
         if: steps.decide.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -85,6 +86,8 @@ jobs:
           PARENT_PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          git config user.name  "${{ secrets.APP_SLUG }}[bot]"
+          git config user.email "${{ secrets.APP_ID }}+${{ secrets.APP_SLUG }}[bot]@users.noreply.github.com"
 
           # Validate version.json -- use has() so major=0 is not treated as falsy
           if ! jq -e 'has("major") and has("minor")' version.json > /dev/null; then
@@ -102,32 +105,7 @@ jobs:
           short_sha=$(git rev-parse --short HEAD)
           branch_name="chore/auto-bump-v${new_version}-${short_sha}"
 
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch_name"
           git add version.json
           git commit -m "chore: bump version to ${new_version}"
-          git push origin "$branch_name" --force
-
-          # Idempotent: fail if a bump PR already exists (e.g. workflow re-run)
-          existing=$(gh pr list \
-            --head "$branch_name" \
-            --base "$TARGET_REF" \
-            --json number \
-            --jq '.[0].number // ""')
-
-          if [ -n "$existing" ]; then
-            echo "Bump PR already exists (#$existing) -- skipping creation"
-            exit 1
-          else
-            pr_body="Automated **${bump_type}** version bump triggered by PR approval #${{ github.event.pull_request.number }} with the \`version bump\` label."
-            pr_body="${pr_body}"$'\n\n'"Merging this will set \`${TARGET_REF}\` to **v${new_version}**."
-            pr_body="${pr_body}"$'\n\n'"Parent-PR: ${{ github.event.pull_request.number }}"
-            gh pr create \
-              --base "$TARGET_REF" \
-              --head "$branch_name" \
-              --title "chore: bump version to v${new_version}" \
-              --body "$pr_body" \
-              --label "automated-version-bump"\
-
-          fi
+          git push origin HEAD:new-staging
+          gh pr edit "$PARENT_PR" --add-label "version bumped"
