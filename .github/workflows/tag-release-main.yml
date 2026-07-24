@@ -48,7 +48,6 @@ jobs:
             BOT_USER_ID="${{ steps.get-bot-user-id.outputs.bot-user-id }}"
             git config user.name  "bot-actions-jtl[bot]"
             git config user.email "${BOT_USER_ID}+bot-actions-jtl[bot]@users.noreply.github.com"
-
             git tag -a "$tag" -m "Release ${tag}"
             git push origin "$tag"
             echo "Created and pushed tag $tag"
