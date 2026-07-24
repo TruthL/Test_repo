@@ -43,7 +43,7 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           echo "Fast-forwarding staging branch to main"
-          REPO: ${{ github.repository}}
+          REPO="${{ github.repository }}"
           # Update the git reference for staging directly to match main's SHA
           gh api --method PATCH "repos/$REPO/git/refs/heads/staging" \
           -f sha="$(git rev-parse origin/main )" 
