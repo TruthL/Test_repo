@@ -38,7 +38,6 @@ jobs:
           # This force-updates qa to the exact tip of main (equivalent to delete & recreate)
           git push --force-with-lease origin +refs/heads/main:refs/heads/qa
   
-
       # ---- Point staging to main ----
       - name: Point staging to main
         env:
@@ -46,4 +45,3 @@ jobs:
         run: |
           gh api --method PATCH "repos/TruthL/Test_repo/git/refs/heads/new-staging" \
           -f sha="$(git rev-parse origin/main)"
-      
