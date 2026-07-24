@@ -30,6 +30,8 @@ jobs:
 
       - name: Get bot user ID
         id: get-bot-user-id
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           BOT_USER_ID=$(gh api "users/bot-actions-jtl%5Bbot%5D" --jq .id)
           echo "bot-user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
