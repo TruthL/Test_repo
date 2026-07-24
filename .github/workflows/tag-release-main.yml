@@ -1,0 +1,38 @@
+# When PR is merged into main, tag the release
+
+name: Tag release on main
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write        # git push tags
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Tag release
+        run: |
+          set -euo pipefail
+
+          version=$(jq -r '"\(.major).\(.minor)"' version.json)
+          tag="v${version}"
+
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists -- skipping"
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$tag" -m "Release ${tag}"
+            git push origin "$tag"
+            echo "Created and pushed tag $tag"
+          fi
