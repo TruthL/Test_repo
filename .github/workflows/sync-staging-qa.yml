@@ -37,6 +37,7 @@ jobs:
         run: |
           # This force-updates qa to the exact tip of main (equivalent to delete & recreate)
           git push --force-with-lease origin +refs/heads/main:refs/heads/qa
+  
 
       # ---- Point staging to main ----
       - name: Point staging to main
