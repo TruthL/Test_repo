@@ -128,6 +128,6 @@ jobs:
               --head "$branch_name" \
               --title "chore: bump version to v${new_version}" \
               --body "$pr_body" \
-              --label "automated-version-bump"
+              --label "automated-version-bump"\
 
           fi
