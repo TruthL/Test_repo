@@ -87,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           git config user.name  "bot-actions-jtl[bot]"
-          git config user.email "${{ secrets.APP_ID }}+bot-actions-jtl[bot]@users.noreply.github.com"
+          git config user.email "4375427+bot-actions-jtl[bot]@users.noreply.github.com"
 
           # Validate version.json -- use has() so major=0 is not treated as falsy
           if ! jq -e 'has("major") and has("minor")' version.json > /dev/null; then
