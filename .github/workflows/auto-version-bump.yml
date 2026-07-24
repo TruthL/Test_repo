@@ -28,6 +28,12 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      - name: Get bot user ID
+        id: get-bot-user-id
+        run: |
+          BOT_USER_ID=$(gh api "users/bot-actions-jtl%5Bbot%5D" --jq .id)
+          echo "bot-user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
+
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
@@ -86,8 +92,9 @@ jobs:
           PARENT_PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          BOT_USER_ID="${{ steps.get-bot-user-id.outputs.bot-user-id }}"
           git config user.name  "bot-actions-jtl[bot]"
-          git config user.email "4375427+bot-actions-jtl[bot]@users.noreply.github.com"
+          git config user.email "${{ BOT_USER_ID }}+bot-actions-jtl[bot]@users.noreply.github.com"
 
           # Validate version.json -- use has() so major=0 is not treated as falsy
           if ! jq -e 'has("major") and has("minor")' version.json > /dev/null; then
